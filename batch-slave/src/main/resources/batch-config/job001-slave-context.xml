@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-kafka="http://www.springframework.org/schema/integration/kafka"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration/kafka http://www.springframework.org/schema/integration/kafka/spring-integration-kafka.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+
+	<bean id="job001SimpleChunkProcessor" class="org.springframework.batch.core.step.item.SimpleChunkProcessor">
+		<property name="itemProcessor" ref="job001Processor"/>
+		<property name="itemWriter" ref="job001Writer"/>
+	</bean>
+	<bean id="job001ChunkProcessorChunkHandler" class="org.springframework.batch.integration.chunk.ChunkProcessorChunkHandler">
+		<property name="chunkProcessor" ref="job001SimpleChunkProcessor"/>
+	</bean>
+
+	<int:channel id="job001RequestChannel" />
+	<int:channel id="job001ReplyChannel" />
+	<int-kafka:message-driven-channel-adapter id="job001KafkaListener" listener-container="job001ConcurrentMessageListenerContainer" phase="100" send-timeout="5000" mode="record" channel="job001RequestChannel" error-channel="errorChannel" />
+	<int-kafka:outbound-channel-adapter	id="job001OutboundChannelAdapter" kafka-template="batchKafkaTemplate" topic="${batch.job.job001.reply.topic}" channel="job001ReplyChannel" />
+	<int:service-activator id="job001ServiceActivator" input-channel="job001RequestChannel" output-channel="job001ReplyChannel" ref="job001ChunkProcessorChunkHandler" method="handleChunk" />
+	
+
+</beans>

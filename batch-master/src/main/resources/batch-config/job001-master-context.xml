@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:batch="http://www.springframework.org/schema/batch"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-kafka="http://www.springframework.org/schema/integration/kafka"
+	xsi:schemaLocation="http://www.springframework.org/schema/batch http://www.springframework.org/schema/batch/spring-batch.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration/kafka http://www.springframework.org/schema/integration/kafka/spring-integration-kafka.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+
+	<batch:job id="job001">
+		<batch:step id="job001-step">
+			<batch:tasklet>
+				<batch:chunk reader="job001Reader" writer="job001Writer" commit-interval="${batch.job.job001.step.commit.interval}"/>
+			</batch:tasklet>
+		</batch:step>
+	</batch:job>
+
+	<int:channel id="job001RequestChannel"></int:channel>
+	<bean id="job001MessagingTemplate" class="org.springframework.integration.core.MessagingTemplate">
+		<property name="defaultChannel" ref="job001RequestChannel" />
+		<property name="receiveTimeout" value="2000" />
+	</bean>
+	<bean id="job001Writer" class="org.springframework.batch.integration.chunk.ChunkMessageChannelItemWriter">
+		<property name="messagingOperations" ref="job001MessagingTemplate" />
+		<property name="replyChannel" ref="job001ReplyChannel"/>
+	</bean>
+	<int-kafka:outbound-channel-adapter id="job001OutboundChannelAdapter" kafka-template="batchKafkaTemplate" topic="${batch.job.job001.request.topic}" channel="job001RequestChannel">
+	</int-kafka:outbound-channel-adapter>
+	
+	<int:channel id="job001ReplyChannel">
+		<int:queue/>
+	</int:channel>
+	<int-kafka:message-driven-channel-adapter id="job001KafkaListener" listener-container="job001ConcurrentMessageListenerContainer" 
+		phase="100" send-timeout="5000" mode="record" channel="job001ReplyChannel" error-channel="errorChannel" />
+	
+
+</beans>
